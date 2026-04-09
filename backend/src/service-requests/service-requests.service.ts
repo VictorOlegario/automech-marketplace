@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ServiceRequest } from './entities/service-request.entity';
@@ -81,7 +81,7 @@ export class ServiceRequestsService {
         `(6371 * acos(cos(radians(:lat)) * cos(radians(sr.latitude)) * cos(radians(sr.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(sr.latitude))))`,
         'distance',
       )
-      .where('sr.status = :status', { status: ServiceRequestStatus.REQUESTED })
+      .where('sr.status IN (:...statuses)', { statuses: [ServiceRequestStatus.REQUESTED, ServiceRequestStatus.QUOTED] })
       .having(
         `(6371 * acos(cos(radians(:lat)) * cos(radians(sr.latitude)) * cos(radians(sr.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(sr.latitude)))) < :radius`,
       )
@@ -99,6 +99,13 @@ export class ServiceRequestsService {
   ): Promise<ServiceRequest> {
     const sr = await this.findById(id);
     const now = new Date();
+
+    // Authorization: only the customer or the assigned mechanic can update
+    if (sr.customerId !== userId && sr.mechanicId !== userId && sr.mechanicId !== null) {
+      throw new ForbiddenException('You are not authorized to update this service request');
+    }
+
+    const previousStatus = sr.status;
 
     const validTransitions: Record<ServiceRequestStatus, ServiceRequestStatus[]> = {
       [ServiceRequestStatus.REQUESTED]: [
@@ -168,7 +175,7 @@ export class ServiceRequestsService {
         entityId: id,
         entityType: 'service_request',
         metadata: {
-          previousStatus: sr.status,
+          previousStatus,
           newStatus: dto.status,
           finalPrice: dto.finalPrice,
           timeToAcceptMinutes: sr.acceptedAt

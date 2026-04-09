@@ -44,19 +44,19 @@ export class AnalyticsService {
   }
 
   async getMetrics(startDate?: Date, endDate?: Date): Promise<Record<string, any>> {
-    const dateFilter =
-      startDate && endDate
-        ? `AND timestamp BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'`
-        : '';
+    const dateWhere: any = {};
+    if (startDate && endDate) {
+      dateWhere.timestamp = Between(startDate, endDate);
+    }
 
     // Total service requests
     const totalRequests = await this.analyticsRepository.count({
-      where: { eventType: AnalyticsEventType.SERVICE_REQUESTED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.SERVICE_REQUESTED },
     });
 
     // Completed services
     const completedServices = await this.analyticsRepository.count({
-      where: { eventType: AnalyticsEventType.SERVICE_COMPLETED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.SERVICE_COMPLETED },
     });
 
     // Conversion rate
@@ -65,12 +65,12 @@ export class AnalyticsService {
 
     // Cancellations
     const cancellations = await this.analyticsRepository.count({
-      where: { eventType: AnalyticsEventType.SERVICE_CANCELLED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.SERVICE_CANCELLED },
     });
 
     // Average time to accept (from metadata)
     const acceptEvents = await this.analyticsRepository.find({
-      where: { eventType: AnalyticsEventType.SERVICE_ACCEPTED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.SERVICE_ACCEPTED },
     });
     const avgTimeToAccept =
       acceptEvents.length > 0
@@ -82,7 +82,7 @@ export class AnalyticsService {
 
     // Average time to complete
     const completeEvents = await this.analyticsRepository.find({
-      where: { eventType: AnalyticsEventType.SERVICE_COMPLETED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.SERVICE_COMPLETED },
     });
     const avgTimeToComplete =
       completeEvents.length > 0
@@ -104,12 +104,12 @@ export class AnalyticsService {
 
     // New registrations
     const newUsers = await this.analyticsRepository.count({
-      where: { eventType: AnalyticsEventType.USER_REGISTERED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.USER_REGISTERED },
     });
 
     // Profile views
     const profileViews = await this.analyticsRepository.count({
-      where: { eventType: AnalyticsEventType.MECHANIC_PROFILE_VIEWED },
+      where: { ...dateWhere, eventType: AnalyticsEventType.MECHANIC_PROFILE_VIEWED },
     });
 
     return {
@@ -125,10 +125,10 @@ export class AnalyticsService {
       newUsers,
       profileViews,
       quotesAccepted: await this.analyticsRepository.count({
-        where: { eventType: AnalyticsEventType.QUOTE_ACCEPTED },
+        where: { ...dateWhere, eventType: AnalyticsEventType.QUOTE_ACCEPTED },
       }),
       quotesRejected: await this.analyticsRepository.count({
-        where: { eventType: AnalyticsEventType.QUOTE_REJECTED },
+        where: { ...dateWhere, eventType: AnalyticsEventType.QUOTE_REJECTED },
       }),
     };
   }
